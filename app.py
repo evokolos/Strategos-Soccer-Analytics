@@ -7,12 +7,37 @@ import matplotlib.pyplot as plt
 # --- 1. SETTINGS & BRANDING ---
 st.set_page_config(page_title="Strategos Soccer Analytics", layout="wide")
 
-# Custom UI Styling for instructional prominence
+# CUSTOM CSS: High-Contrast Metrics & Mobile Visibility
 st.markdown("""
     <style>
-    .stMetric { background-color: #1a1c24; padding: 20px; border-radius: 10px; border: 1px solid #2e313d; }
+    /* High-contrast Metric Cards for Mobile */
+    [data-testid="stMetric"] {
+        background-color: #ffffff !important; /* White background for maximum contrast */
+        border: 2px solid #00d4ff !important;
+        padding: 15px !important;
+        border-radius: 12px !important;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #000000 !important; /* Black text for labels */
+        font-weight: bold !important;
+        font-size: 1.1rem !important;
+    }
+    [data-testid="stMetricValue"] {
+        color: #007bff !important; /* Bold blue for numbers */
+        font-weight: 800 !important;
+    }
     .main { background-color: #0e1117; }
-    .instruction-header { color: #00d4ff; font-weight: bold; font-size: 1.2rem; }
+    
+    /* Mobile Hint Alert */
+    .mobile-hint {
+        background-color: #ff4b4b;
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        margin-bottom: 20px;
+        font-weight: bold;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -59,48 +84,36 @@ elif tactical_filter == "Progressive (>15y)":
     df_filtered = df_filtered[df_filtered['progression'] > 15]
 
 # --- 5. THE MAIN INTERFACE ---
-st.title("⚽ Strategos Tactical Intelligence Suite")
 
-# --- THOROUGH USER INSTRUCTIONS ---
+# MOBILE NAVIGATION HINT
+st.markdown('<div class="mobile-hint">📱 MOBILE USERS: Tap the ">" arrow in the top-left to filter teams/matches!</div>', unsafe_allow_html=True)
+
+st.title("⚽ Strategos Intelligence Suite")
+
+# --- OPERATIONAL GUIDE ---
 st.info("### 📋 OPERATIONAL GUIDE")
-guide_col1, guide_col2, guide_col3 = st.columns(3)
+guide_col1, guide_col2 = st.columns(2)
 
 with guide_col1:
-    st.markdown("<p class='instruction-header'>1. Filter Selection</p>", unsafe_allow_html=True)
-    st.write("""
-    Use the **Sidebar** to set your context. 
-    - **Under Pressure:** Analyzes passes made while an opponent is actively closing down the player.
-    - **Progressive:** Filters for 'Verticality'—passes that moved the ball at least 15 yards toward the goal.
-    """)
+    st.write("**1. NAVIGATION:** Use the sidebar arrow (top-left) to change teams/filters.")
+    st.write("**2. INTERPRETATION:** 🔵Cyan: Progressive | 🟢Green: Success | 🔴Red: Failed")
 
 with guide_col2:
-    st.markdown("<p class='instruction-header'>2. Interpreting the Map</p>", unsafe_allow_html=True)
-    st.write("""
-    - 🔵 **Cyan Lines:** Successful high-progression passes.
-    - 🟢 **Green Lines:** Successful standard completions.
-    - 🔴 **Red Lines:** Turnovers or failed attempts.
-    - **Heatmap:** Concentrated color shows where the team initiates their plays.
-    """)
+    st.write("**3. METRICS:** High-contrast cards below show match-wide performance.")
 
-with guide_col3:
-    st.markdown("<p class='instruction-header'>3. Glossary of Terms</p>", unsafe_allow_html=True)
-    st.write("""
-    - **Danger Zone:** Total successful passes ending in the final 20% of the field.
-    - **Avg Yards:** The mean distance a pass moved forward (negative value means backward passing).
-    """)
-
-# KPI Metric Row
+# --- HIGH-CONTRAST KPI METRIC ROW ---
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("Pass Volume", len(df_filtered))
+m1.metric("PASS VOLUME", len(df_filtered))
 acc = (len(df_filtered[df_filtered['pass_outcome'] == 'Complete']) / len(df_filtered) * 100) if len(df_filtered) > 0 else 0
-m2.metric("Accuracy", f"{acc:.1f}%")
-m3.metric("Danger Zone", len(df_filtered[df_filtered['end_x'] > 100]))
-m4.metric("Avg Yards", f"{df_filtered['progression'].mean():.1f}y")
+m2.metric("ACCURACY", f"{acc:.1f}%")
+m3.metric("DANGER ZONE", len(df_filtered[df_filtered['end_x'] > 100]))
+m4.metric("AVG. YARDS", f"{df_filtered['progression'].mean():.1f}y")
 
 st.divider()
 
-# --- 6. PROMINENT DUAL-PANE VIEW ---
-col_rank, col_map = st.columns([1, 1.5])
+# --- 6. DUAL-PANE VIEW ---
+# On mobile, columns will stack vertically automatically
+col_rank, col_map = st.columns([1, 1.2])
 
 with col_rank:
     st.header("📈 Player Rankings")
@@ -108,12 +121,12 @@ with col_rank:
     
     if not leaders.empty:
         st.bar_chart(leaders, color="#00d4ff")
-        st.write("#### Scout's Data View")
-        disp = df_filtered[['player', 'pass_outcome', 'progression']].copy()
-        disp.columns = ['Player', 'Outcome', 'Yards']
-        st.dataframe(disp.groupby('Player')['Yards'].sum().sort_values(ascending=False), use_container_width=True)
+        st.write("#### Leaderboard Data")
+        disp = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).reset_index()
+        disp.columns = ['Player', 'Total Yards']
+        st.dataframe(disp.head(10), use_container_width=True)
     else:
-        st.warning("No data found for this specific filter.")
+        st.warning("No data found.")
 
 with col_map:
     st.header("🎯 Spatial Analysis")
