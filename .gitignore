@@ -1,0 +1,27 @@
+__pycache__/
+    .streamlit/
+    *.csv
+    ```
+3.  Press **Cmd + S** to save.
+
+#### **File C: `app.py`**
+1.  Click the New File icon and type `app.py`.
+2.  Copy and paste the **"Master Build" code** I gave you in the previous message (the one starting with `import streamlit as st`).
+3.  Press **Cmd + S** to save.
+
+---
+
+### 4. Verification Check
+Look at your sidebar in VS Code. It should look exactly like this:
+
+*   📁 `StrategosScout`
+    *   📄 `app.py`
+    *   📄 `requirements.txt`
+    *   📄 `.gitignore`
+
+
+
+### 5. Local Test (Optional but recommended)
+Before we move to GitHub, let's make sure it works on your machine. In the VS Code terminal (press **Ctrl + `**), run:
+```bash
+streamlit run app.py
