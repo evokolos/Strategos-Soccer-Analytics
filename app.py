@@ -7,19 +7,12 @@ import matplotlib.pyplot as plt
 # --- 1. SETTINGS & BRANDING ---
 st.set_page_config(page_title="Strategos Soccer Analytics", layout="wide")
 
-# Custom UI Styling for High-Impact Rankings
+# Custom UI Styling for instructional prominence
 st.markdown("""
     <style>
     .stMetric { background-color: #1a1c24; padding: 20px; border-radius: 10px; border: 1px solid #2e313d; }
     .main { background-color: #0e1117; }
-    .st-ae { font-size: 1.1rem !important; } 
-    /* Highlighting the Rankings Section */
-    [data-testid="stVerticalBlock"] > div:nth-child(8) { 
-        background-color: #11141c; 
-        padding: 20px; 
-        border-radius: 15px; 
-        border: 1px solid #00d4ff;
-    }
+    .instruction-header { color: #00d4ff; font-weight: bold; font-size: 1.2rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -68,14 +61,33 @@ elif tactical_filter == "Progressive (>15y)":
 # --- 5. THE MAIN INTERFACE ---
 st.title("⚽ Strategos Tactical Intelligence Suite")
 
-# --- HIGH-VISIBILITY COMMAND CENTER ---
-st.info(f"### 🚀 ANALYSIS: {team.upper()}")
+# --- THOROUGH USER INSTRUCTIONS ---
+st.info("### 📋 OPERATIONAL GUIDE")
+guide_col1, guide_col2, guide_col3 = st.columns(3)
 
-# --- TOP PERFORMANCE SPOTLIGHT ---
-leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(10)
-if not leaders.empty:
-    top_player = leaders.index[0]
-    st.success(f"### 🌟 SCOUT'S PICK: {top_player.upper()}\n{top_player} is currently leading the team in vertical progression under the '{tactical_filter}' lens.")
+with guide_col1:
+    st.markdown("<p class='instruction-header'>1. Filter Selection</p>", unsafe_allow_html=True)
+    st.write("""
+    Use the **Sidebar** to set your context. 
+    - **Under Pressure:** Analyzes passes made while an opponent is actively closing down the player.
+    - **Progressive:** Filters for 'Verticality'—passes that moved the ball at least 15 yards toward the goal.
+    """)
+
+with guide_col2:
+    st.markdown("<p class='instruction-header'>2. Interpreting the Map</p>", unsafe_allow_html=True)
+    st.write("""
+    - 🔵 **Cyan Lines:** Successful high-progression passes.
+    - 🟢 **Green Lines:** Successful standard completions.
+    - 🔴 **Red Lines:** Turnovers or failed attempts.
+    - **Heatmap:** Concentrated color shows where the team initiates their plays.
+    """)
+
+with guide_col3:
+    st.markdown("<p class='instruction-header'>3. Glossary of Terms</p>", unsafe_allow_html=True)
+    st.write("""
+    - **Danger Zone:** Total successful passes ending in the final 20% of the field.
+    - **Avg Yards:** The mean distance a pass moved forward (negative value means backward passing).
+    """)
 
 # KPI Metric Row
 m1, m2, m3, m4 = st.columns(4)
@@ -88,18 +100,15 @@ m4.metric("Avg Yards", f"{df_filtered['progression'].mean():.1f}y")
 st.divider()
 
 # --- 6. PROMINENT DUAL-PANE VIEW ---
-# We use columns to put the Rankings and Pitch side-by-side
 col_rank, col_map = st.columns([1, 1.5])
 
 with col_rank:
     st.header("📈 Player Rankings")
-    st.write(f"Total vertical yards gained via {tactical_filter} passes.")
+    leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(10)
     
     if not leaders.empty:
-        # Use a high-contrast bar chart
-        st.bar_chart(leaders, color="#00d4ff", x_label="Yards Progressed")
-        
-        st.write("#### Detailed Breakdown")
+        st.bar_chart(leaders, color="#00d4ff")
+        st.write("#### Scout's Data View")
         disp = df_filtered[['player', 'pass_outcome', 'progression']].copy()
         disp.columns = ['Player', 'Outcome', 'Yards']
         st.dataframe(disp.groupby('Player')['Yards'].sum().sort_values(ascending=False), use_container_width=True)
@@ -120,5 +129,3 @@ with col_map:
         if not df_filtered.empty:
             pitch.kdeplot(df_filtered['start_x'], df_filtered['start_y'], ax=ax, fill=True, levels=100, cmap='magma')
     st.pyplot(fig)
-    
-    st.warning("🔵 Cyan: Progressive | 🟢 Green: Success | 🔴 Red: Failed")
