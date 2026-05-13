@@ -98,8 +98,7 @@ with tab1:
         st.divider()
         st.info("Heatmaps show pass origin density—the darker the 'heat', the more influence in that zone.")
 
-with tab2:
-    with tab_rank:
+with tab_rank:
     st.subheader("Progressive Yardage by Player")
     # Grouping by player to see who moved the ball forward the most
     leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(10)
