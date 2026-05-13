@@ -12,6 +12,7 @@ st.markdown("""
     <style>
     .stMetric { background-color: #1a1c24; padding: 20px; border-radius: 10px; border: 1px solid #2e313d; }
     .main { background-color: #0e1117; }
+    [data-testid="stSidebar"] { background-color: #11141c; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -33,13 +34,15 @@ def get_events(match_id):
     df['under_pressure'] = df['under_pressure'].fillna(False)
     return df
 
-# --- 3. SIDEBAR CONTROLS ---
+# --- 3. SIDEBAR CONTROLS (With Logo) ---
 with st.sidebar:
-    st.title("🛡️ Strategos Scout")
-    st.subheader("Tactical Intelligence Suite")
+    # Official FIFA World Cup 2022 Logo
+    st.image("https://upload.wikimedia.org/wikipedia/en/e/e3/2022_FIFA_World_Cup.svg", use_container_width=True)
+    
+    st.title("Strategos Scout")
     st.write("---")
     
-    st.markdown("### **1. Select Context**")
+    st.markdown("### **1. Selection**")
     all_matches = get_data()
     selected_match = st.selectbox("Choose Fixture", all_matches['label'])
     m_id = all_matches[all_matches['label'] == selected_match]['match_id'].values[0]
@@ -48,7 +51,7 @@ with st.sidebar:
     team = st.selectbox("Analyze Team", passes['team'].unique())
     
     st.write("---")
-    st.markdown("### **2. Tactical Lens**")
+    st.markdown("### **2. Tactical Filters**")
     tactical_filter = st.radio("Focus Area", ["All Passes", "Under Pressure", "Progressive (>15y)"])
     view = st.radio("Visualization Style", ["Tactical Lines", "Heatmap Density"])
 
@@ -60,25 +63,23 @@ elif tactical_filter == "Progressive (>15y)":
     df_filtered = df_filtered[df_filtered['progression'] > 15]
 
 # --- 5. THE MAIN INTERFACE ---
-st.title(f"📊 {team} Scouting Profile")
-st.caption(f"Analyzing match data for {selected_match}")
+st.title(f"📊 {team} vs {selected_match.replace(team, '').replace(' vs ', '')}")
+st.caption("Strategic Performance Analysis Suite")
 
-# Dynamic UX Onboarding
-with st.expander("📖 User Guide: How to use this Scout", expanded=True):
+with st.expander("📖 User Guide", expanded=False):
     st.write("""
-    1. **Sidebar:** Use the left panel to switch between matches and tactical lenses.
-    2. **Spatial View:** The pitch map visualizes every pass. **Green** is success, **Red** is turnover, and **Cyan** is high-value progression.
-    3. **Player Impact:** Switch to the 'Player Rankings' tab to see who is driving the team's forward movement.
-    4. **Under Pressure:** Toggle this in the sidebar to see which players maintain composure when hunted by defenders.
+    - **Spatial Analysis:** View the flow of the game. Successful passes are **Green/Cyan**, Failures are **Red**.
+    - **Progressive:** Only shows passes that moved the ball at least 15 yards closer to the goal.
+    - **Deep Completions:** Tracks passes finishing in the final 20% of the pitch.
     """)
 
 # KPI Metric Row
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("Pass Volume", len(df_filtered), help="Total passes matching your current filters.")
+m1.metric("Pass Volume", len(df_filtered))
 acc = (len(df_filtered[df_filtered['pass_outcome'] == 'Complete']) / len(df_filtered) * 100) if len(df_filtered) > 0 else 0
-m2.metric("Accuracy", f"{acc:.1f}%", help="Percentage of passes that reached a teammate.")
-m3.metric("Danger Zone", len(df_filtered[df_filtered['end_x'] > 100]), help="Successful passes into the attacking 20 yards.")
-m4.metric("Avg Yards", f"{df_filtered['progression'].mean():.1f}y", help="Average forward distance gained per pass.")
+m2.metric("Accuracy", f"{acc:.1f}%")
+m3.metric("Danger Zone", len(df_filtered[df_filtered['end_x'] > 100]))
+m4.metric("Avg Yards", f"{df_filtered['progression'].mean():.1f}y")
 
 st.divider()
 
@@ -87,20 +88,13 @@ tab_map, tab_rank = st.tabs(["🎯 Spatial Analysis", "📈 Player Rankings"])
 
 with tab_map:
     col_pitch, col_legend = st.columns([4, 1])
-    
     with col_pitch:
         pitch = Pitch(pitch_type='statsbomb', pitch_color='#0e1117', line_color='#3e424b', goal_type='box')
         fig, ax = pitch.draw(figsize=(12, 8))
         
         if view == "Tactical Lines":
             for i, row in df_filtered.iterrows():
-                if row['pass_outcome'] != 'Complete':
-                    color = "#ff4b4b" # Red
-                elif row['progression'] > 15:
-                    color = "#00d4ff" # Cyan
-                else:
-                    color = "#2ecc71" # Green
-                
+                color = "#ff4b4b" if row['pass_outcome'] != 'Complete' else ("#00d4ff" if row['progression'] > 15 else "#2ecc71")
                 pitch.lines(row['start_x'], row['start_y'], row['end_x'], row['end_y'], 
                             lw=2, color=color, comet=True, ax=ax, alpha=0.5)
         else:
@@ -110,25 +104,16 @@ with tab_map:
         
     with col_legend:
         st.write("### Legend")
-        st.write("🔵 **Cyan**")
-        st.caption("Progressive Success")
-        st.write("🟢 **Green**")
-        st.caption("Standard Completion")
-        st.write("🔴 **Red**")
-        st.caption("Turnover / Failed")
+        st.write("🔵 Cyan: Attack")
+        st.write("🟢 Green: Success")
+        st.write("🔴 Red: Failed")
 
 with tab_rank:
     st.subheader("Top Impact Players")
-    st.write("Ranking by total forward yardage provided to the team.")
-    
     leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(10)
-    
     if not leaders.empty:
         st.bar_chart(leaders, color="#00d4ff")
-        st.write("### Recent Pass Data")
-        # Cleaned display for the table
+        st.write("### Data Snapshot")
         disp = df_filtered[['player', 'pass_outcome', 'progression']].copy()
         disp.columns = ['Player', 'Outcome', 'Yards']
         st.dataframe(disp.tail(15), use_container_width=True)
-    else:
-        st.info("Select a different filter to see player rankings.")
