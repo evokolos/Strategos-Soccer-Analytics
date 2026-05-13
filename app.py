@@ -99,16 +99,21 @@ with tab1:
         st.info("Heatmaps show pass origin density—the darker the 'heat', the more influence in that zone.")
 
 with tab2:
-    st.write("### Top Impact Players")
-    leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(12)
-    st.bar_chart(leaders, color="#00d4ff")
+    with tab_rank:
+    st.subheader("Progressive Yardage by Player")
+    # Grouping by player to see who moved the ball forward the most
+    leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(10)
     
-    st.write("### Raw Performance Data")
-    st.dataframe(df_filtered[['player', 'pass_outcome', 'progression']].head(20), use_container_width=True)import streamlit as st
-from statsbombpy import sb
-import pandas as pd
-from mplsoccer import Pitch
-import matplotlib.pyplot as plt
+    if not leaders.empty:
+        st.bar_chart(leaders, color="#00d4ff")
+        
+        st.write("### Data Breakdown")
+        # Cleaned up columns for a better user experience
+        display_df = df_filtered[['player', 'pass_outcome', 'progression']].copy()
+        display_df.columns = ['Player', 'Result', 'Yards Gained']
+        st.dataframe(display_df.head(20), use_container_width=True)
+    else:
+        st.warning("No data available for the current filters.")
 
 # --- 1. CONFIG & STYLE ---
 st.set_page_config(page_title="Strategos Soccer Analytics", layout="wide")
