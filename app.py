@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # --- 1. SETTINGS & BRANDING ---
 st.set_page_config(page_title="Strategos Soccer Analytics", layout="wide")
 
-# CUSTOM CSS: Mobile-First Contrast & Typography
+# CUSTOM CSS: High Contrast & Mobile Optimization
 st.markdown("""
     <style>
     [data-testid="stMetric"] {
@@ -64,7 +64,6 @@ with st.sidebar:
     team = st.selectbox("🛡️ Analyze Team", passes['team'].unique())
     st.divider()
     tactical_filter = st.radio("🔬 Tactical Focus", ["All Passes", "Under Pressure", "Progressive (>15y)"])
-    # ORDER UPDATED: Heatmap Density is now the first option
     view = st.radio("🎨 Visual Style", ["Heatmap Density", "Tactical Lines"])
 
 # --- 4. ANALYTICS LOGIC ---
@@ -78,7 +77,7 @@ elif tactical_filter == "Progressive (>15y)":
 st.markdown('<div class="mobile-hint">📱 MOBILE USERS: Tap the ">>" arrow in the top-left for filters!</div>', unsafe_allow_html=True)
 st.title("⚽ Strategos Tactical Intelligence")
 
-# --- DETAILED OPERATIONAL GUIDE ---
+# --- REFINED OPERATIONAL GUIDE ---
 with st.container():
     st.info("### 📘 STRATEGOS OPERATIONAL GUIDE")
     g_col1, g_col2 = st.columns(2)
@@ -87,16 +86,16 @@ with st.container():
         st.markdown("<p class='guide-header'>1. Tactical Focus Logic</p>", unsafe_allow_html=True)
         st.write("""
         - **All Passes:** Raw volume analysis of team distribution.
-        - **Under Pressure:** Filters for passes made while being closed down. Isolates **composure**.
-        - **Progressive (>15y):** Highlights **verticality** and aggressive intent toward goal.
+        - **Under Pressure:** Filters for passes made while being closed down. Isolates **technical security**.
+        - **Progressive (>15y):** Highlights **verticality** and intent to penetrate defensive lines.
         """)
         
     with g_col2:
-        # ORDER UPDATED: Heatmap and Spatiality instructions swapped
-        st.markdown("<p class='guide-header'>2. Heatmaps & Spatiality</p>", unsafe_allow_html=True)
+        st.markdown("<p class='guide-header'>2. Key Analytics Definitions</p>", unsafe_allow_html=True)
         st.write("""
-        - **Heatmap Density:** A Kernel Density Estimation (KDE) plot. This identifies the team's 'Gravity'—the specific zones where they establish positional control.
-        - **Tactical Lines:** A vector-map of ball movement. **Cyan** lines indicate progressive success, while **Red** lines pinpoint defensive turnovers.
+        - **Danger Zone (Deep Completions):** Successful passes ending in the **final 20% of the pitch** (x > 100 on the 120-yard StatsBomb scale). This is the highest-value attacking area.
+        - **Heatmap Density:** Identifies 'Spatial Gravity'—where a team sustains possession.
+        - **Tactical Lines:** 🔵 Cyan: High-Progression | 🟢 Green: Success | 🔴 Red: Turnovers.
         """)
 
 # --- HIGH-CONTRAST METRICS ---
@@ -105,7 +104,9 @@ m1, m2, m3, m4 = st.columns(4)
 m1.metric("PASS VOLUME", len(df_filtered))
 acc = (len(df_filtered[df_filtered['pass_outcome'] == 'Complete']) / len(df_filtered) * 100) if len(df_filtered) > 0 else 0
 m2.metric("ACCURACY", f"{acc:.1f}%")
-m3.metric("DANGER ZONE", len(df_filtered[df_filtered['end_x'] > 100]))
+# Explicit logic for Danger Zone: end_x > 100
+danger_zone_count = len(df_filtered[(df_filtered['pass_outcome'] == 'Complete') & (df_filtered['end_x'] > 100)])
+m3.metric("DANGER ZONE", danger_zone_count)
 m4.metric("AVG. YARDS", f"{df_filtered['progression'].mean():.1f}y")
 
 st.divider()
@@ -127,7 +128,9 @@ with col_map:
     pitch = Pitch(pitch_type='statsbomb', pitch_color='#0e1117', line_color='#3e424b', goal_type='box')
     fig, ax = pitch.draw(figsize=(10, 7))
     
-    # ORDER UPDATED: Logic now defaults to Heatmap first
+    # Adding a visual highlight for the Danger Zone on the pitch
+    ax.axvspan(100, 120, color='#00d4ff', alpha=0.1, label='Danger Zone')
+    
     if view == "Heatmap Density":
         if not df_filtered.empty:
             pitch.kdeplot(df_filtered['start_x'], df_filtered['start_y'], ax=ax, fill=True, levels=100, cmap='magma')
@@ -136,5 +139,7 @@ with col_map:
             color = "#ff4b4b" if row['pass_outcome'] != 'Complete' else ("#00d4ff" if row['progression'] > 15 else "#2ecc71")
             pitch.lines(row['start_x'], row['start_y'], row['end_x'], row['end_y'], 
                         lw=2, color=color, comet=True, ax=ax, alpha=0.5)
+            
+    st.pyplot(fig)
             
     st.pyplot(fig)
