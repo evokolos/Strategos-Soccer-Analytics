@@ -7,17 +7,23 @@ import matplotlib.pyplot as plt
 # --- 1. SETTINGS & BRANDING ---
 st.set_page_config(page_title="Strategos Soccer Analytics", layout="wide")
 
-# Custom UI Styling for larger text
+# Custom UI Styling for High-Impact Rankings
 st.markdown("""
     <style>
     .stMetric { background-color: #1a1c24; padding: 20px; border-radius: 10px; border: 1px solid #2e313d; }
     .main { background-color: #0e1117; }
-    /* Making the Info/Warning text larger */
     .st-ae { font-size: 1.1rem !important; } 
+    /* Highlighting the Rankings Section */
+    [data-testid="stVerticalBlock"] > div:nth-child(8) { 
+        background-color: #11141c; 
+        padding: 20px; 
+        border-radius: 15px; 
+        border: 1px solid #00d4ff;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. DATA ENGINES (Cached) ---
+# --- 2. DATA ENGINES ---
 @st.cache_data
 def get_data():
     matches = sb.matches(competition_id=43, season_id=106)
@@ -63,20 +69,13 @@ elif tactical_filter == "Progressive (>15y)":
 st.title("⚽ Strategos Tactical Intelligence Suite")
 
 # --- HIGH-VISIBILITY COMMAND CENTER ---
-# We use a header inside the info box to make it "pop"
-st.info(f"""
-### 🚀 COMMAND CENTER: HOW TO ANALYZE {team.upper()}
-1. **FILTER:** Use the sidebar to toggle **Under Pressure** to see which players handle stress best.
-2. **MAP:** Switch to **Heatmap Density** to see if the team is attacking primarily through the wings or the center.
-3. **SCOUT:** Head to the **Player Rankings** tab to see who leads the team in vertical yardage.
-""")
+st.info(f"### 🚀 ANALYSIS: {team.upper()}")
 
-st.warning("""
-### 🕵️ TACTICAL VISUAL KEY
-* 🔵 **CYAN LINES:** High-impact **Progressive Passes** (Moved ball >15 yards forward).
-* 🟢 **GREEN LINES:** Standard successful completions that kept possession.
-* 🔴 **RED LINES:** Failed passes, interceptions, or out-of-bounds turnovers.
-""")
+# --- TOP PERFORMANCE SPOTLIGHT ---
+leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(10)
+if not leaders.empty:
+    top_player = leaders.index[0]
+    st.success(f"### 🌟 SCOUT'S PICK: {top_player.upper()}\n{top_player} is currently leading the team in vertical progression under the '{tactical_filter}' lens.")
 
 # KPI Metric Row
 m1, m2, m3, m4 = st.columns(4)
@@ -88,12 +87,29 @@ m4.metric("Avg Yards", f"{df_filtered['progression'].mean():.1f}y")
 
 st.divider()
 
-# --- 6. TABS ---
-tab_map, tab_rank = st.tabs(["🎯 SPATIAL ANALYSIS", "📈 PLAYER RANKINGS"])
+# --- 6. PROMINENT DUAL-PANE VIEW ---
+# We use columns to put the Rankings and Pitch side-by-side
+col_rank, col_map = st.columns([1, 1.5])
 
-with tab_map:
+with col_rank:
+    st.header("📈 Player Rankings")
+    st.write(f"Total vertical yards gained via {tactical_filter} passes.")
+    
+    if not leaders.empty:
+        # Use a high-contrast bar chart
+        st.bar_chart(leaders, color="#00d4ff", x_label="Yards Progressed")
+        
+        st.write("#### Detailed Breakdown")
+        disp = df_filtered[['player', 'pass_outcome', 'progression']].copy()
+        disp.columns = ['Player', 'Outcome', 'Yards']
+        st.dataframe(disp.groupby('Player')['Yards'].sum().sort_values(ascending=False), use_container_width=True)
+    else:
+        st.warning("No data found for this specific filter.")
+
+with col_map:
+    st.header("🎯 Spatial Analysis")
     pitch = Pitch(pitch_type='statsbomb', pitch_color='#0e1117', line_color='#3e424b', goal_type='box')
-    fig, ax = pitch.draw(figsize=(12, 8))
+    fig, ax = pitch.draw(figsize=(10, 7))
     
     if view == "Tactical Lines":
         for i, row in df_filtered.iterrows():
@@ -104,13 +120,5 @@ with tab_map:
         if not df_filtered.empty:
             pitch.kdeplot(df_filtered['start_x'], df_filtered['start_y'], ax=ax, fill=True, levels=100, cmap='magma')
     st.pyplot(fig)
-
-with tab_rank:
-    st.subheader("Top Impact Players")
-    leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(10)
-    if not leaders.empty:
-        st.bar_chart(leaders, color="#00d4ff")
-        st.write("### Data Snapshot")
-        disp = df_filtered[['player', 'pass_outcome', 'progression']].copy()
-        disp.columns = ['Player', 'Outcome', 'Yards']
-        st.dataframe(disp.tail(15), use_container_width=True)
+    
+    st.warning("🔵 Cyan: Progressive | 🟢 Green: Success | 🔴 Red: Failed")
