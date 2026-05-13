@@ -64,7 +64,8 @@ with st.sidebar:
     team = st.selectbox("🛡️ Analyze Team", passes['team'].unique())
     st.divider()
     tactical_filter = st.radio("🔬 Tactical Focus", ["All Passes", "Under Pressure", "Progressive (>15y)"])
-    view = st.radio("🎨 Visual Style", ["Tactical Lines", "Heatmap Density"])
+    # ORDER UPDATED: Heatmap Density is now the first option
+    view = st.radio("🎨 Visual Style", ["Heatmap Density", "Tactical Lines"])
 
 # --- 4. ANALYTICS LOGIC ---
 df_filtered = passes[passes['team'] == team].copy()
@@ -85,16 +86,17 @@ with st.container():
     with g_col1:
         st.markdown("<p class='guide-header'>1. Tactical Focus Logic</p>", unsafe_allow_html=True)
         st.write("""
-        - **All Passes:** Comprehensive volume analysis of team distribution patterns.
-        - **Under Pressure:** Isolates passes made while an opponent is closing down space. Use this to identify **technical composure** and high-IQ playmakers.
-        - **Progressive (>15y):** Filters for 'Verticality'. These passes move the ball at least 15 yards closer to the goal, highlighting **aggressive intent** and creative penetration.
+        - **All Passes:** Raw volume analysis of team distribution.
+        - **Under Pressure:** Filters for passes made while being closed down. Isolates **composure**.
+        - **Progressive (>15y):** Highlights **verticality** and aggressive intent toward goal.
         """)
         
     with g_col2:
-        st.markdown("<p class='guide-header'>2. Visual Style & Spatiality</p>", unsafe_allow_html=True)
+        # ORDER UPDATED: Heatmap and Spatiality instructions swapped
+        st.markdown("<p class='guide-header'>2. Heatmaps & Spatiality</p>", unsafe_allow_html=True)
         st.write("""
-        - **Tactical Lines:** A vector-map of ball flight. **Cyan** lines indicate progressive success, while **Red** lines pinpoint defensive turnovers.
-        - **Heatmap Density:** A Kernel Density Estimation (KDE) plot. This identifies the team's 'Gravity'—the specific spatial zones where they establish positional control.
+        - **Heatmap Density:** A Kernel Density Estimation (KDE) plot. This identifies the team's 'Gravity'—the specific zones where they establish positional control.
+        - **Tactical Lines:** A vector-map of ball movement. **Cyan** lines indicate progressive success, while **Red** lines pinpoint defensive turnovers.
         """)
 
 # --- HIGH-CONTRAST METRICS ---
@@ -125,12 +127,14 @@ with col_map:
     pitch = Pitch(pitch_type='statsbomb', pitch_color='#0e1117', line_color='#3e424b', goal_type='box')
     fig, ax = pitch.draw(figsize=(10, 7))
     
-    if view == "Tactical Lines":
+    # ORDER UPDATED: Logic now defaults to Heatmap first
+    if view == "Heatmap Density":
+        if not df_filtered.empty:
+            pitch.kdeplot(df_filtered['start_x'], df_filtered['start_y'], ax=ax, fill=True, levels=100, cmap='magma')
+    else:
         for i, row in df_filtered.iterrows():
             color = "#ff4b4b" if row['pass_outcome'] != 'Complete' else ("#00d4ff" if row['progression'] > 15 else "#2ecc71")
             pitch.lines(row['start_x'], row['start_y'], row['end_x'], row['end_y'], 
                         lw=2, color=color, comet=True, ax=ax, alpha=0.5)
-    else:
-        if not df_filtered.empty:
-            pitch.kdeplot(df_filtered['start_x'], df_filtered['start_y'], ax=ax, fill=True, levels=100, cmap='magma')
+            
     st.pyplot(fig)
