@@ -7,37 +7,30 @@ import matplotlib.pyplot as plt
 # --- 1. SETTINGS & BRANDING ---
 st.set_page_config(page_title="Strategos Soccer Analytics", layout="wide")
 
-# CUSTOM CSS: High-Contrast Metrics & Mobile Visibility
+# CUSTOM CSS: Mobile-First Contrast & Typography
 st.markdown("""
     <style>
-    /* High-contrast Metric Cards for Mobile */
     [data-testid="stMetric"] {
-        background-color: #ffffff !important; /* White background for maximum contrast */
+        background-color: #ffffff !important;
         border: 2px solid #00d4ff !important;
         padding: 15px !important;
         border-radius: 12px !important;
     }
-    [data-testid="stMetricLabel"] {
-        color: #000000 !important; /* Black text for labels */
-        font-weight: bold !important;
-        font-size: 1.1rem !important;
-    }
-    [data-testid="stMetricValue"] {
-        color: #007bff !important; /* Bold blue for numbers */
-        font-weight: 800 !important;
-    }
+    [data-testid="stMetricLabel"] { color: #000000 !important; font-weight: bold !important; }
+    [data-testid="stMetricValue"] { color: #007bff !important; font-weight: 800 !important; }
     .main { background-color: #0e1117; }
     
-    /* Mobile Hint Alert */
     .mobile-hint {
         background-color: #ff4b4b;
         color: white;
-        padding: 10px;
-        border-radius: 5px;
+        padding: 12px;
+        border-radius: 8px;
         text-align: center;
         margin-bottom: 20px;
         font-weight: bold;
+        font-size: 1rem;
     }
+    .guide-header { color: #00d4ff; font-weight: 800; font-size: 1.2rem; margin-top: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -64,14 +57,11 @@ with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/en/e/e3/2022_FIFA_World_Cup.svg", use_container_width=True)
     st.title("Strategos Scout")
     st.write("---")
-    
     all_matches = get_data()
     selected_match = st.selectbox("📅 Choose Fixture", all_matches['label'])
     m_id = all_matches[all_matches['label'] == selected_match]['match_id'].values[0]
-    
     passes = get_events(m_id)
     team = st.selectbox("🛡️ Analyze Team", passes['team'].unique())
-    
     st.divider()
     tactical_filter = st.radio("🔬 Tactical Focus", ["All Passes", "Under Pressure", "Progressive (>15y)"])
     view = st.radio("🎨 Visual Style", ["Tactical Lines", "Heatmap Density"])
@@ -84,24 +74,31 @@ elif tactical_filter == "Progressive (>15y)":
     df_filtered = df_filtered[df_filtered['progression'] > 15]
 
 # --- 5. THE MAIN INTERFACE ---
+st.markdown('<div class="mobile-hint">📱 MOBILE USERS: Tap the ">" arrow in the top-left for filters!</div>', unsafe_allow_html=True)
+st.title("⚽ Strategos Tactical Intelligence")
 
-# MOBILE NAVIGATION HINT
-st.markdown('<div class="mobile-hint">📱 MOBILE USERS: Tap the ">" arrow in the top-left to filter teams/matches!</div>', unsafe_allow_html=True)
+# --- DETAILED OPERATIONAL GUIDE ---
+with st.container():
+    st.info("### 📘 STRATEGOS OPERATIONAL GUIDE")
+    g_col1, g_col2 = st.columns(2)
+    
+    with g_col1:
+        st.markdown("<p class='guide-header'>1. Tactical Focus Logic</p>", unsafe_allow_html=True)
+        st.write("""
+        - **All Passes:** Raw volume analysis of team distribution.
+        - **Under Pressure:** Filters for passes where the player was actively harried by a defender. This isolates **composure** and **technical security**.
+        - **Progressive (>15y):** Highlights **verticality**. These are 'threat' passes that move the ball significantly closer to the opponent's goal.
+        """)
+        
+    with g_col2:
+        st.markdown("<p class='guide-header'>2. Visual Style & Spatiality</p>", unsafe_allow_html=True)
+        st.write("""
+        - **Tactical Lines:** A vector-map of ball movement. **Cyan** lines indicate high-value progressive success, while **Red** lines pinpoint defensive breakdowns and turnovers.
+        - **Heatmap Density:** A Kernel Density Estimation (KDE) plot. This identifies the team's 'Gravity'—the specific zones where they establish control or sustain pressure.
+        """)
 
-st.title("⚽ Strategos Intelligence Suite")
-
-# --- OPERATIONAL GUIDE ---
-st.info("### 📋 OPERATIONAL GUIDE")
-guide_col1, guide_col2 = st.columns(2)
-
-with guide_col1:
-    st.write("**1. NAVIGATION:** Use the sidebar arrow (top-left) to change teams/filters.")
-    st.write("**2. INTERPRETATION:** 🔵Cyan: Progressive | 🟢Green: Success | 🔴Red: Failed")
-
-with guide_col2:
-    st.write("**3. METRICS:** High-contrast cards below show match-wide performance.")
-
-# --- HIGH-CONTRAST KPI METRIC ROW ---
+# --- HIGH-CONTRAST METRICS ---
+st.write("") 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("PASS VOLUME", len(df_filtered))
 acc = (len(df_filtered[df_filtered['pass_outcome'] == 'Complete']) / len(df_filtered) * 100) if len(df_filtered) > 0 else 0
@@ -111,22 +108,17 @@ m4.metric("AVG. YARDS", f"{df_filtered['progression'].mean():.1f}y")
 
 st.divider()
 
-# --- 6. DUAL-PANE VIEW ---
-# On mobile, columns will stack vertically automatically
+# --- 6. DUAL-PANE ANALYSIS ---
 col_rank, col_map = st.columns([1, 1.2])
 
 with col_rank:
-    st.header("📈 Player Rankings")
+    st.header("📈 Player Impact")
     leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(10)
-    
     if not leaders.empty:
         st.bar_chart(leaders, color="#00d4ff")
-        st.write("#### Leaderboard Data")
         disp = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).reset_index()
-        disp.columns = ['Player', 'Total Yards']
+        disp.columns = ['Player', 'Vertical Yards']
         st.dataframe(disp.head(10), use_container_width=True)
-    else:
-        st.warning("No data found.")
 
 with col_map:
     st.header("🎯 Spatial Analysis")
