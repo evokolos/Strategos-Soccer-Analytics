@@ -5,7 +5,7 @@ from mplsoccer import Pitch
 import matplotlib.pyplot as plt
 
 # --- 1. SETTINGS & BRANDING ---
-st.set_page_config(page_title="Strategós Soccer Analytics", layout="wide")
+st.set_page_config(page_title="Strategos Soccer Analytics", layout="wide")
 
 # CUSTOM CSS: Mobile-First Contrast & Typography
 st.markdown("""
@@ -55,7 +55,7 @@ def get_events(match_id):
 # --- 3. SIDEBAR CONTROLS ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/en/e/e3/2022_FIFA_World_Cup.svg", use_container_width=True)
-    st.title("Strategós Scout")
+    st.title("Strategos Scout")
     st.write("---")
     all_matches = get_data()
     selected_match = st.selectbox("📅 Choose Fixture", all_matches['label'])
@@ -74,8 +74,8 @@ elif tactical_filter == "Progressive (>15y)":
     df_filtered = df_filtered[df_filtered['progression'] > 15]
 
 # --- 5. THE MAIN INTERFACE ---
-st.markdown('<div class="mobile-hint">📱 MOBILE USERS: Tap the ">" arrow in the top-left for filters!</div>', unsafe_allow_html=True)
-st.title("⚽ Strategós Tactical Intelligence")
+st.markdown('<div class="mobile-hint">📱 MOBILE USERS: Tap the ">>" arrow in the top-left for filters!</div>', unsafe_allow_html=True)
+st.title("⚽ Strategos Tactical Intelligence")
 
 # --- DETAILED OPERATIONAL GUIDE ---
 with st.container():
@@ -85,16 +85,16 @@ with st.container():
     with g_col1:
         st.markdown("<p class='guide-header'>1. Tactical Focus Logic</p>", unsafe_allow_html=True)
         st.write("""
-        - **All Passes:** Raw volume analysis of team distribution.
-        - **Under Pressure:** Filters for passes where the player was actively harried by a defender. This isolates **composure** and **technical security**.
-        - **Progressive (>15y):** Highlights **verticality**. These are 'threat' passes that move the ball significantly closer to the opponent's goal.
+        - **All Passes:** Comprehensive volume analysis of team distribution patterns.
+        - **Under Pressure:** Isolates passes made while an opponent is closing down space. Use this to identify **technical composure** and high-IQ playmakers.
+        - **Progressive (>15y):** Filters for 'Verticality'. These passes move the ball at least 15 yards closer to the goal, highlighting **aggressive intent** and creative penetration.
         """)
         
     with g_col2:
         st.markdown("<p class='guide-header'>2. Visual Style & Spatiality</p>", unsafe_allow_html=True)
         st.write("""
-        - **Tactical Lines:** A vector-map of ball movement. **Cyan** lines indicate high-value progressive success, while **Red** lines pinpoint defensive breakdowns and turnovers.
-        - **Heatmap Density:** A Kernel Density Estimation (KDE) plot. This identifies the team's 'Gravity'—the specific zones where they establish control or sustain pressure.
+        - **Tactical Lines:** A vector-map of ball flight. **Cyan** lines indicate progressive success, while **Red** lines pinpoint defensive turnovers.
+        - **Heatmap Density:** A Kernel Density Estimation (KDE) plot. This identifies the team's 'Gravity'—the specific spatial zones where they establish positional control.
         """)
 
 # --- HIGH-CONTRAST METRICS ---
