@@ -5,7 +5,7 @@ from mplsoccer import Pitch
 import matplotlib.pyplot as plt
 
 # --- 1. SETTINGS & BRANDING ---
-st.set_page_config(page_title="Strategos Soccer Analytics", layout="wide")
+st.set_page_config(page_title="Strategós Soccer Analytics", layout="wide")
 
 # CUSTOM CSS: Mobile-First Contrast & Typography
 st.markdown("""
@@ -55,7 +55,7 @@ def get_events(match_id):
 # --- 3. SIDEBAR CONTROLS ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/en/e/e3/2022_FIFA_World_Cup.svg", use_container_width=True)
-    st.title("Strategos Scout")
+    st.title("Strategós Scout")
     st.write("---")
     all_matches = get_data()
     selected_match = st.selectbox("📅 Choose Fixture", all_matches['label'])
@@ -75,7 +75,7 @@ elif tactical_filter == "Progressive (>15y)":
 
 # --- 5. THE MAIN INTERFACE ---
 st.markdown('<div class="mobile-hint">📱 MOBILE USERS: Tap the ">" arrow in the top-left for filters!</div>', unsafe_allow_html=True)
-st.title("⚽ Strategos Tactical Intelligence")
+st.title("⚽ Strategós Tactical Intelligence")
 
 # --- DETAILED OPERATIONAL GUIDE ---
 with st.container():
