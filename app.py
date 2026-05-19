@@ -146,12 +146,14 @@ else:
     import streamlit as st
 import plotly.graph_objects as go
 
-# 1. Define your tactical color palette
+# Expanded tactical line definitions
 TACTICAL_COLORS = {
-    "Defensive Line": "#EF553B",    # Crimson Red
-    "Midfield Block": "#FECB52",    # Amber Yellow
-    "Attacking Line": "#00CC96",    # Emerald Green
-    "Passing Lane/Link": "#636EFA"  # Electric Blue
+    "Defensive Line": "#EF553B",      # Crimson Red (Backline positioning/depth)
+    "Midfield Block": "#FECB52",      # Amber Yellow (Second line of defense/midfield shape)
+    "Attacking Line": "#00CC96",      # Emerald Green (Forward pressing or attacking trio)
+    "Passing Lane/Link": "#636EFA",    # Electric Blue (Connections between specific players)
+    "Pressing/Cover Line": "#AB63FA", # Royal Purple (Lines showing the pressing trigger group)
+    "Width/Flank Unit": "#19D3F3"     # Cyan (Wingback/Winger vertical pairs on the flanks)
 }
 
 st.title("Strategós Analytics — Tactical Line Filter")
