@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 # --- 1. SETTINGS & BRANDING ---
 st.set_page_config(page_title="Strategós Soccer Analytics", layout="wide")
 
-# CUSTOM CSS: Professional Contrast & Mobile Optimization
+# CUSTOM CSS: High Contrast & Professional Typography
 st.markdown("""
     <style>
     [data-testid="stMetric"] {
@@ -30,6 +30,7 @@ st.markdown("""
         font-weight: bold;
     }
     .guide-header { color: #00d4ff; font-weight: 800; font-size: 1.2rem; margin-top: 10px; }
+    .concept-box { background-color: #1a1c24; padding: 15px; border-radius: 10px; border-left: 5px solid #00d4ff; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -62,7 +63,6 @@ with st.sidebar:
     passes = get_events(m_id)
     team = st.selectbox("🛡️ Analyze Team", passes['team'].unique())
     st.divider()
-    # Removed Visual Style filter as requested
     tactical_filter = st.radio("🔬 Tactical Focus", ["All Passes", "Under Pressure", "Progressive (>15y)"])
 
 # --- 4. ANALYTICS LOGIC ---
@@ -76,25 +76,18 @@ elif tactical_filter == "Progressive (>15y)":
 st.markdown('<div class="mobile-hint">📱 MOBILE USERS: Tap the ">>" arrow in the top-left for filters!</div>', unsafe_allow_html=True)
 st.title("⚽ Strategós Tactical Intelligence")
 
-# --- REFINED OPERATIONAL GUIDE ---
+# --- DETAILED CONCEPT GUIDE ---
 with st.container():
-    st.info("### 📘 STRATEGÓS OPERATIONAL GUIDE")
-    g_col1, g_col2 = st.columns(2)
+    st.info("### 📘 STRATEGÓS OPERATIONAL GUIDE & CONCEPTS")
+    c1, c2 = st.columns(2)
     
-    with g_col1:
-        st.markdown("<p class='guide-header'>1. Tactical Scale & Logic</p>", unsafe_allow_html=True)
-        st.write("""
-        - **The Field Scale:** Data is mapped on a **120-yard pitch**. 0 is your goal line; 120 is the opponent's.
-        - **The Danger Zone:** Defined as the **final 20% of the field** (the last 24 yards). Successful entries here are the highest-value actions in soccer.
-        - **Under Pressure:** Filters for moments of defensive duress to measure technical composure.
-        """)
-        
-    with g_col2:
-        st.markdown("<p class='guide-header'>2. Visual Legend</p>", unsafe_allow_html=True)
-        st.write("""
-        - **Heatmap (Left):** Identifies 'Spatial Gravity'—the specific zones where the team maintains possession.
-        - **Tactical Lines (Right):** A vector-map of ball flight. 🔵 Cyan: High-Progression | 🟢 Green: Success | 🔴 Red: Turnovers.
-        """)
+    with c1:
+        st.markdown("<div class='concept-box'><strong>📍 What is High-Progression?</strong><br>This identifies 'Spatial Gravity'. It measures if the team is actually dangerous or just passing in circles. Lighter heatmap zones in the final third indicate successful penetration into scoring areas.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='concept-box'><strong>📐 The Danger Zone Scale</strong><br>Measured on a 120-yard pitch. The Danger Zone is the final 24 yards (x > 100). Successful entries here are the highest-value actions in football.</div>", unsafe_allow_html=True)
+
+    with c2:
+        st.markdown("<div class='concept-box'><strong>📈 What are Vertical Yards?</strong><br>This measures 'Directness'. It only counts distance gained toward the opponent's goal. A 40-yard sideways pass counts as 0 yards, while a 15-yard forward pass counts as 15.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='concept-box'><strong>🛡️ Under Pressure Filter</strong><br>Isolates moments where defenders are actively closing down the player. Use this to scout technical composure and decision-making speed.</div>", unsafe_allow_html=True)
 
 # --- HIGH-CONTRAST METRICS ---
 st.write("") 
@@ -119,14 +112,11 @@ with map_col1:
     if not df_filtered.empty:
         pitch1.kdeplot(df_filtered['start_x'], df_filtered['start_y'], ax=ax1, fill=True, levels=100, cmap='magma')
     st.pyplot(fig1)
-    st.caption("Intensity of play: Lighter areas show where the team initiates play.")
 
 with map_col2:
     st.subheader("Tactical Lines")
     pitch2 = Pitch(pitch_type='statsbomb', pitch_color='#0e1117', line_color='#3e424b', goal_type='box')
     fig2, ax2 = pitch2.draw(figsize=(8, 6))
-    
-    # Danger Zone visual highlight
     ax2.axvspan(100, 120, color='#00d4ff', alpha=0.1)
     
     for i, row in df_filtered.iterrows():
@@ -134,15 +124,84 @@ with map_col2:
         pitch2.lines(row['start_x'], row['start_y'], row['end_x'], row['end_y'], 
                     lw=2, color=color, comet=True, ax=ax2, alpha=0.5)
     st.pyplot(fig2)
-    st.caption("Flow of play: Vectors showing individual pass success and threat.")
 
 st.divider()
 
-# --- 7. PLAYER RANKINGS ---
-st.header("📈 Player Impact")
-leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(10)
+# --- 7. THE ELITE 11 PLAYER RANKINGS ---
+st.header("📈 The Elite 11: Impact Rankings")
+st.write("Top 11 players ranked by total vertical yards progressed toward the goal.")
+
+# Force exactly 11 players
+leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(11)
+
 if not leaders.empty:
     st.bar_chart(leaders, color="#00d4ff")
+    
+    # Detailed Table for the Elite 11
     disp = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).reset_index()
-    disp.columns = ['Player', 'Vertical Yards Progressed']
-    st.dataframe(disp.head(10), use_container_width=True)
+    disp.columns = ['Scouted Player', 'Total Vertical Yards']
+    st.table(disp.head(11)) # Using st.table for a more 'static/professional' look
+else:
+    st.warning("No performance data available for this filter.")import streamlit as st
+import plotly.graph_objects as go
+
+# 1. Define your tactical color palette
+TACTICAL_COLORS = {
+    "Defensive Line": "#EF553B",    # Crimson Red
+    "Midfield Block": "#FECB52",    # Amber Yellow
+    "Attacking Line": "#00CC96",    # Emerald Green
+    "Passing Lane/Link": "#636EFA"  # Electric Blue
+}
+
+st.title("Strategós Analytics — Tactical Line Filter")
+
+# 2. Sidebar Filters
+st.sidebar.header("Tactical Visualization Filters")
+
+# Allow user to toggle specific lines on/off
+selected_lines = st.sidebar.multiselect(
+    "Select Tactical Lines to Display:",
+    options=list(TACTICAL_COLORS.keys()),
+    default=list(TACTICAL_COLORS.keys())
+)
+
+# 3. Base Pitch Setup (Simplified for example)
+fig = go.Figure()
+
+# Pitch boundaries (StatsBomb coords: 120 x 80)
+fig.update_layout(
+    xaxis=dict(range=[0, 120], showgrid=False, zeroline=False),
+    yaxis=dict(range=[0, 80], showgrid=False, zeroline=False),
+    width=800,
+    height=533,
+    plot_bgcolor="#1e1e1e", # Dark mode pitch background
+    paper_bgcolor="#1e1e1e"
+)
+
+# 4. Mock Tracking Data for Tactical Lines
+# In production, this would be computed from your StatsBomb event/tracking data
+line_data = [
+    {"type": "Defensive Line", "x": [30, 32, 35, 30], "y": [15, 35, 55, 70]},
+    {"type": "Midfield Block", "x": [55, 58, 60, 56], "y": [10, 32, 50, 72]},
+    {"type": "Attacking Line", "x": [85, 90, 88],     "y": [20, 40, 60]},
+    {"type": "Passing Lane/Link", "x": [32, 58],       "y": [35, 32]}
+]
+
+# 5. Render Filtered Lines
+for line in line_data:
+    if line["type"] in selected_lines:
+        fig.add_trace(go.Scatter(
+            x=line["x"],
+            y=line["y"],
+            mode="lines+markers",
+            name=line["type"],
+            line=dict(
+                color=TACTICAL_COLORS[line["type"]], 
+                width=3, 
+                dash="dash" if "Link" in line["type"] else "solid"
+            ),
+            marker=dict(size=6, color="#ffffff"),
+            hoverinfo="name"
+        ))
+
+st.plotly_chart(fig, use_container_width=True)
