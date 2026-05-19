@@ -142,7 +142,8 @@ if not leaders.empty:
     disp.columns = ['Scouted Player', 'Total Vertical Yards']
     st.table(disp.head(11)) # Using st.table for a more 'static/professional' look
 else:
-    st.warning("No performance data available for this filter.")import streamlit as st
+    st.warning("No performance data available for this filter.")
+    import streamlit as st
 import plotly.graph_objects as go
 
 # 1. Define your tactical color palette
