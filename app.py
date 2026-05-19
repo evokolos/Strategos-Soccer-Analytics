@@ -392,3 +392,30 @@ elif navigation_view == "Predictive Match Simulator":
         with m1: st.metric(f"{team_a_name} Ball Possession", f"{int((tA['midfield']/(tA['midfield']+tB['midfield']))*100)}%")
         with m2: st.metric("Simulated Match State", "FT (After Extra Time)" if score_a == score_b else "Full-Time (FT)")
         with m3: st.metric(f"{team_b_name} Ball Possession", f"{100 - int((tA['midfield']/(tA['midfield']+tB['midfield']))*100)}%")
+        # ==========================================
+# 5. UI LAYOUT ARCHITECTURE (Safe Top Banner)
+# ==========================================
+# Ensure these lines start completely at the far left edge of your file!
+header_logo_col, header_text_col = st.columns([1, 6])
+
+with header_logo_col:
+    st.image("https://upload.wikimedia.org/wikipedia/commons/4/4b/FIFA_World_Cup_2026_Logo.svg", width=120)
+
+with header_text_col:
+    st.title("Strategós Analytics — World Cup Edition")
+    st.caption("Advanced Spatial Data Engine | Elite Scouting & Tactical Performance Framework")
+
+# Render primary pitch interface directly below the branded banner
+main_pitch_fig = draw_tactical_pitch()
+st.plotly_chart(main_pitch_fig, use_container_width=True)
+
+# Contextual metrics panel below pitch
+st.markdown("---")
+metrics_col1, metrics_col2, metrics_col3 = st.columns(3)
+
+with metrics_col1:
+    st.metric(label="Defensive Line Average Height", value="30.25 m", delta="+1.40 m vs Last Match")
+with metrics_col2:
+    st.metric(label="Midfield Compactness Area", value="435 m²", delta="-22 m² (More Compact)", delta_color="inverse")
+with metrics_col3:
+    st.metric(label="Half-Space Entry Infiltrations", value="14", delta="Optimal Zone Saturation")
