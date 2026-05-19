@@ -1,210 +1,394 @@
 import streamlit as st
-from statsbombpy import sb
 import pandas as pd
-from mplsoccer import Pitch
-import matplotlib.pyplot as plt
-
-# --- 1. SETTINGS & BRANDING ---
-st.set_page_config(page_title="Strategós Soccer Analytics", layout="wide")
-
-# CUSTOM CSS: High Contrast & Professional Typography
-st.markdown("""
-    <style>
-    [data-testid="stMetric"] {
-        background-color: #ffffff !important;
-        border: 2px solid #00d4ff !important;
-        padding: 15px !important;
-        border-radius: 12px !important;
-    }
-    [data-testid="stMetricLabel"] { color: #000000 !important; font-weight: bold !important; }
-    [data-testid="stMetricValue"] { color: #007bff !important; font-weight: 800 !important; }
-    .main { background-color: #0e1117; }
-    
-    .mobile-hint {
-        background-color: #ff4b4b;
-        color: white;
-        padding: 12px;
-        border-radius: 8px;
-        text-align: center;
-        margin-bottom: 20px;
-        font-weight: bold;
-    }
-    .guide-header { color: #00d4ff; font-weight: 800; font-size: 1.2rem; margin-top: 10px; }
-    .concept-box { background-color: #1a1c24; padding: 15px; border-radius: 10px; border-left: 5px solid #00d4ff; margin-bottom: 10px; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 2. DATA ENGINES ---
-@st.cache_data
-def get_data():
-    matches = sb.matches(competition_id=43, season_id=106)
-    matches['label'] = matches['home_team'] + " vs " + matches['away_team']
-    return matches
-
-@st.cache_data
-def get_events(match_id):
-    events = sb.events(match_id=match_id)
-    df = events[events['type'] == 'Pass'].copy()
-    df['pass_outcome'] = df['pass_outcome'].fillna('Complete')
-    df['start_x'], df['start_y'] = df['location'].str[0], df['location'].str[1]
-    df['end_x'], df['end_y'] = df['pass_end_location'].str[0], df['pass_end_location'].str[1]
-    df['progression'] = df['end_x'] - df['start_x']
-    df['under_pressure'] = df['under_pressure'].fillna(False)
-    return df
-
-# --- 3. SIDEBAR CONTROLS ---
-with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/en/e/e3/2022_FIFA_World_Cup.svg", use_container_width=True)
-    st.title("Strategós Scout")
-    st.write("---")
-    all_matches = get_data()
-    selected_match = st.selectbox("📅 Choose Fixture", all_matches['label'])
-    m_id = all_matches[all_matches['label'] == selected_match]['match_id'].values[0]
-    passes = get_events(m_id)
-    team = st.selectbox("🛡️ Analyze Team", passes['team'].unique())
-    st.divider()
-    tactical_filter = st.radio("🔬 Tactical Focus", ["All Passes", "Under Pressure", "Progressive (>15y)"])
-
-# --- 4. ANALYTICS LOGIC ---
-df_filtered = passes[passes['team'] == team].copy()
-if tactical_filter == "Under Pressure":
-    df_filtered = df_filtered[df_filtered['under_pressure'] == True]
-elif tactical_filter == "Progressive (>15y)":
-    df_filtered = df_filtered[df_filtered['progression'] > 15]
-
-# --- 5. THE MAIN INTERFACE ---
-st.markdown('<div class="mobile-hint">📱 MOBILE USERS: Tap the ">>" arrow in the top-left for filters!</div>', unsafe_allow_html=True)
-st.title("⚽ Strategós Tactical Intelligence")
-
-# --- DETAILED CONCEPT GUIDE ---
-with st.container():
-    st.info("### 📘 STRATEGÓS OPERATIONAL GUIDE & CONCEPTS")
-    c1, c2 = st.columns(2)
-    
-    with c1:
-        st.markdown("<div class='concept-box'><strong>📍 What is High-Progression?</strong><br>This identifies 'Spatial Gravity'. It measures if the team is actually dangerous or just passing in circles. Lighter heatmap zones in the final third indicate successful penetration into scoring areas.</div>", unsafe_allow_html=True)
-        st.markdown("<div class='concept-box'><strong>📐 The Danger Zone Scale</strong><br>Measured on a 120-yard pitch. The Danger Zone is the final 24 yards (x > 100). Successful entries here are the highest-value actions in football.</div>", unsafe_allow_html=True)
-
-    with c2:
-        st.markdown("<div class='concept-box'><strong>📈 What are Vertical Yards?</strong><br>This measures 'Directness'. It only counts distance gained toward the opponent's goal. A 40-yard sideways pass counts as 0 yards, while a 15-yard forward pass counts as 15.</div>", unsafe_allow_html=True)
-        st.markdown("<div class='concept-box'><strong>🛡️ Under Pressure Filter</strong><br>Isolates moments where defenders are actively closing down the player. Use this to scout technical composure and decision-making speed.</div>", unsafe_allow_html=True)
-
-# --- HIGH-CONTRAST METRICS ---
-st.write("") 
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("PASS VOLUME", len(df_filtered))
-acc = (len(df_filtered[df_filtered['pass_outcome'] == 'Complete']) / len(df_filtered) * 100) if len(df_filtered) > 0 else 0
-m2.metric("ACCURACY", f"{acc:.1f}%")
-danger_zone_count = len(df_filtered[(df_filtered['pass_outcome'] == 'Complete') & (df_filtered['end_x'] > 100)])
-m3.metric("DANGER ZONE", danger_zone_count)
-m4.metric("AVG. YARDS", f"{df_filtered['progression'].mean():.1f}y")
-
-st.divider()
-
-# --- 6. SIMULTANEOUS PITCH ANALYSIS ---
-st.header("🎯 Dual-Pitch Tactical Analysis")
-map_col1, map_col2 = st.columns(2)
-
-with map_col1:
-    st.subheader("Spatial Heatmap")
-    pitch1 = Pitch(pitch_type='statsbomb', pitch_color='#0e1117', line_color='#3e424b', goal_type='box')
-    fig1, ax1 = pitch1.draw(figsize=(8, 6))
-    if not df_filtered.empty:
-        pitch1.kdeplot(df_filtered['start_x'], df_filtered['start_y'], ax=ax1, fill=True, levels=100, cmap='magma')
-    st.pyplot(fig1)
-
-with map_col2:
-    st.subheader("Tactical Lines")
-    pitch2 = Pitch(pitch_type='statsbomb', pitch_color='#0e1117', line_color='#3e424b', goal_type='box')
-    fig2, ax2 = pitch2.draw(figsize=(8, 6))
-    ax2.axvspan(100, 120, color='#00d4ff', alpha=0.1)
-    
-    for i, row in df_filtered.iterrows():
-        color = "#ff4b4b" if row['pass_outcome'] != 'Complete' else ("#00d4ff" if row['progression'] > 15 else "#2ecc71")
-        pitch2.lines(row['start_x'], row['start_y'], row['end_x'], row['end_y'], 
-                    lw=2, color=color, comet=True, ax=ax2, alpha=0.5)
-    st.pyplot(fig2)
-
-st.divider()
-
-# --- 7. THE ELITE 11 PLAYER RANKINGS ---
-st.header("📈 The Elite 11: Impact Rankings")
-st.write("Top 11 players ranked by total vertical yards progressed toward the goal.")
-
-# Force exactly 11 players
-leaders = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).head(11)
-
-if not leaders.empty:
-    st.bar_chart(leaders, color="#00d4ff")
-    
-    # Detailed Table for the Elite 11
-    disp = df_filtered.groupby('player')['progression'].sum().sort_values(ascending=False).reset_index()
-    disp.columns = ['Scouted Player', 'Total Vertical Yards']
-    st.table(disp.head(11)) # Using st.table for a more 'static/professional' look
-else:
-    st.warning("No performance data available for this filter.")
-    import streamlit as st
+import numpy as np
+import plotly.express as px
 import plotly.graph_objects as go
 
-# Expanded tactical line definitions
-TACTICAL_COLORS = {
-    "Defensive Line": "#EF553B",      # Crimson Red (Backline positioning/depth)
-    "Midfield Block": "#FECB52",      # Amber Yellow (Second line of defense/midfield shape)
-    "Attacking Line": "#00CC96",      # Emerald Green (Forward pressing or attacking trio)
-    "Passing Lane/Link": "#636EFA",    # Electric Blue (Connections between specific players)
-    "Pressing/Cover Line": "#AB63FA", # Royal Purple (Lines showing the pressing trigger group)
-    "Width/Flank Unit": "#19D3F3"     # Cyan (Wingback/Winger vertical pairs on the flanks)
+# -----------------------------------------------------------------------------
+# 1. DATABASE COMPONENT LAYER
+# -----------------------------------------------------------------------------
+WORLD_CUP_DATA = {
+    "groups": {
+        "Group A": [
+            {"rank": 1, "team": "Netherlands", "played": 3, "won": 2, "drawn": 1, "lost": 0, "gf": 5, "ga": 1, "gd": 4, "pts": 7},
+            {"rank": 2, "team": "Senegal", "played": 3, "won": 2, "drawn": 0, "lost": 1, "gf": 5, "ga": 4, "gd": 1, "pts": 6},
+            {"rank": 3, "team": "Ecuador", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 4, "ga": 3, "gd": 1, "pts": 4},
+            {"rank": 4, "team": "Qatar (H)", "played": 3, "won": 0, "drawn": 0, "lost": 3, "gf": 1, "ga": 7, "gd": -6, "pts": 0}
+        ],
+        "Group B": [
+            {"rank": 1, "team": "England", "played": 3, "won": 2, "drawn": 1, "lost": 0, "gf": 9, "ga": 2, "gd": 7, "pts": 7},
+            {"rank": 2, "team": "United States", "played": 3, "won": 1, "drawn": 2, "lost": 0, "gf": 2, "ga": 1, "gd": 1, "pts": 5},
+            {"rank": 3, "team": "Iran", "played": 3, "won": 1, "drawn": 0, "lost": 2, "gf": 4, "ga": 7, "gd": -3, "pts": 3},
+            {"rank": 4, "team": "Wales", "played": 3, "won": 0, "drawn": 1, "lost": 2, "gf": 1, "ga": 6, "gd": -5, "pts": 1}
+        ],
+        "Group C": [
+            {"rank": 1, "team": "Argentina", "played": 3, "won": 2, "drawn": 0, "lost": 1, "gf": 5, "ga": 2, "gd": 3, "pts": 6},
+            {"rank": 2, "team": "Poland", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 2, "ga": 2, "gd": 0, "pts": 4},
+            {"rank": 3, "team": "Mexico", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 2, "ga": 3, "gd": -1, "pts": 4},
+            {"rank": 4, "team": "Saudi Arabia", "played": 3, "won": 1, "drawn": 0, "lost": 2, "gf": 3, "ga": 5, "gd": -2, "pts": 3}
+        ],
+        "Group D": [
+            {"rank": 1, "team": "France", "played": 3, "won": 2, "drawn": 0, "lost": 1, "gf": 6, "ga": 3, "gd": 3, "pts": 6},
+            {"rank": 2, "team": "Australia", "played": 3, "won": 2, "drawn": 0, "lost": 1, "gf": 3, "ga": 4, "gd": -1, "pts": 6},
+            {"rank": 3, "team": "Tunisia", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 1, "ga": 1, "gd": 0, "pts": 4},
+            {"rank": 4, "team": "Denmark", "played": 3, "won": 0, "drawn": 1, "lost": 2, "gf": 1, "ga": 3, "gd": -2, "pts": 1}
+        ],
+        "Group E": [
+            {"rank": 1, "team": "Japan", "played": 3, "won": 2, "drawn": 0, "lost": 1, "gf": 4, "ga": 3, "gd": 1, "pts": 6},
+            {"rank": 2, "team": "Spain", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 9, "ga": 3, "gd": 6, "pts": 4},
+            {"rank": 3, "team": "Germany", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 6, "ga": 5, "gd": 1, "pts": 4},
+            {"rank": 4, "team": "Costa Rica", "played": 3, "won": 1, "drawn": 0, "lost": 2, "gf": 3, "ga": 11, "gd": -8, "pts": 3}
+        ],
+        "Group F": [
+            {"rank": 1, "team": "Morocco", "played": 3, "won": 2, "drawn": 1, "lost": 0, "gf": 4, "ga": 1, "gd": 3, "pts": 7},
+            {"rank": 2, "team": "Croatia", "played": 3, "won": 1, "drawn": 2, "lost": 0, "gf": 4, "ga": 1, "gd": 3, "pts": 5},
+            {"rank": 3, "team": "Belgium", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 1, "ga": 2, "gd": -1, "pts": 4},
+            {"rank": 4, "team": "Canada", "played": 3, "won": 0, "drawn": 0, "lost": 3, "gf": 2, "ga": 7, "gd": -5, "pts": 0}
+        ],
+        "Group G": [
+            {"rank": 1, "team": "Brazil", "played": 3, "won": 2, "drawn": 0, "lost": 1, "gf": 3, "ga": 1, "gd": 2, "pts": 6},
+            {"rank": 2, "team": "Switzerland", "played": 3, "won": 2, "drawn": 0, "lost": 1, "gf": 4, "ga": 3, "gd": 1, "pts": 6},
+            {"rank": 3, "team": "Cameroon", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 4, "ga": 4, "gd": 0, "pts": 4},
+            {"rank": 4, "team": "Serbia", "played": 3, "won": 0, "drawn": 1, "lost": 2, "gf": 5, "ga": 8, "gd": -3, "pts": 1}
+        ],
+        "Group H": [
+            {"rank": 1, "team": "Portugal", "played": 3, "won": 2, "drawn": 0, "lost": 1, "gf": 6, "ga": 4, "gd": 2, "pts": 6},
+            {"rank": 2, "team": "South Korea", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 4, "ga": 4, "gd": 0, "pts": 4},
+            {"rank": 3, "team": "Uruguay", "played": 3, "won": 1, "drawn": 1, "lost": 1, "gf": 2, "ga": 2, "gd": 0, "pts": 4},
+            {"rank": 4, "team": "Ghana", "played": 3, "won": 1, "drawn": 0, "lost": 2, "gf": 5, "ga": 7, "gd": -2, "pts": 3}
+        ]
+    },
+    "bracket": {
+        "r16": [
+            {"match": "R16 1", "team1": "Netherlands", "score1": 3, "team2": "USA", "score2": 1, "winner": "Netherlands"},
+            {"match": "R16 2", "team1": "Argentina", "score1": 2, "team2": "Australia", "score2": 1, "winner": "Argentina"},
+            {"match": "R16 3", "team1": "Japan", "score1": 1, "team2": "Croatia (p)", "score2": 1, "winner": "Croatia"},
+            {"match": "R16 4", "team1": "Brazil", "score1": 4, "team2": "South Korea", "score2": 1, "winner": "Brazil"},
+            {"match": "R16 5", "team1": "England", "score1": 3, "team2": "Senegal", "score2": 0, "winner": "England"},
+            {"match": "R16 6", "team1": "France", "score1": 3, "team2": "Poland", "score2": 1, "winner": "France"},
+            {"match": "R16 7", "team1": "Morocco (p)", "score1": 0, "team2": "Spain", "score2": 0, "winner": "Morocco"},
+            {"match": "R16 8", "team1": "Portugal", "score1": 6, "team2": "Switzerland", "score2": 1, "winner": "Portugal"}
+        ],
+        "qf": [
+            {"match": "QF 1", "team1": "Netherlands", "score1": 2, "team2": "Argentina (p)", "score2": 2, "winner": "Argentina"},
+            {"match": "QF 2", "team1": "Croatia (p)", "score1": 1, "team2": "Brazil", "score2": 1, "winner": "Croatia"},
+            {"match": "QF 3", "team1": "England", "score1": 1, "team2": "France", "score2": 2, "winner": "France"},
+            {"match": "QF 4", "team1": "Morocco", "score1": 1, "team2": "Portugal", "score2": 0, "winner": "Morocco"}
+        ],
+        "sf": [
+            {"match": "SF 1", "team1": "Argentina", "score1": 3, "team2": "Croatia", "score2": 0, "winner": "Argentina"},
+            {"match": "SF 2", "team1": "France", "score1": 2, "team2": "Morocco", "score2": 0, "winner": "France"}
+        ],
+        "third": [
+            {"match": "Third Place", "team1": "Croatia", "score1": 2, "team2": "Morocco", "score2": 1, "winner": "Croatia"}
+        ],
+        "final": [
+            {"match": "Final", "team1": "Argentina (p)", "score1": 3, "team2": "France", "score2": 3, "winner": "Argentina"}
+        ]
+    },
+    "players": [
+        {"id": "messi", "name": "Lionel Messi", "team": "Argentina", "role": "Forward / Playmaker", "stats": {"Pace": 83, "Shooting": 94, "Passing": 96, "Dribbling": 95, "Defending": 35, "Physical": 69}, "world_cup_stats": {"Goals": 7, "Assists": 3, "Key Passes": 18, "Shots on Target": 15, "Dribbles Comp": 15, "Distance (km)": 62.1}},
+        {"id": "mbappe", "name": "Kylian Mbappé", "team": "France", "role": "Forward", "stats": {"Pace": 97, "Shooting": 92, "Passing": 80, "Dribbling": 92, "Defending": 36, "Physical": 77}, "world_cup_stats": {"Goals": 8, "Assists": 2, "Key Passes": 11, "Shots on Target": 16, "Dribbles Comp": 25, "Distance (km)": 58.4}},
+        {"id": "griezmann", "name": "Antoine Griezmann", "team": "France", "role": "Midfielder / Central AM", "stats": {"Pace": 78, "Shooting": 83, "Passing": 91, "Dribbling": 85, "Defending": 68, "Physical": 74}, "world_cup_stats": {"Goals": 0, "Assists": 3, "Key Passes": 22, "Shots on Target": 4, "Dribbles Comp": 6, "Distance (km)": 66.8}},
+        {"id": "modric", "name": "Luka Modrić", "team": "Croatia", "role": "Central Midfielder", "stats": {"Pace": 72, "Shooting": 78, "Passing": 92, "Dribbling": 88, "Defending": 74, "Physical": 72}, "world_cup_stats": {"Goals": 0, "Assists": 0, "Key Passes": 10, "Shots on Target": 3, "Dribbles Comp": 8, "Distance (km)": 72.4}},
+        {"id": "fernandes", "name": "Bruno Fernandes", "team": "Portugal", "role": "Attacking Midfielder", "stats": {"Pace": 79, "Shooting": 86, "Passing": 90, "Dribbling": 83, "Defending": 64, "Physical": 77}, "world_cup_stats": {"Goals": 2, "Assists": 3, "Key Passes": 12, "Shots on Target": 5, "Dribbles Comp": 6, "Distance (km)": 44.2}},
+        {"id": "hakimi", "name": "Achraf Hakimi", "team": "Morocco", "role": "Right Wingback", "stats": {"Pace": 92, "Shooting": 68, "Passing": 81, "Dribbling": 80, "Defending": 85, "Physical": 82}, "world_cup_stats": {"Goals": 0, "Assists": 1, "Key Passes": 7, "Shots on Target": 2, "Dribbles Comp": 11, "Distance (km)": 70.2}}
+    ],
+    "final_match": {
+        "details": {
+            "match": "2022 World Cup Final",
+            "stadium": "Lusail Stadium, Qatar",
+            "attendance": "88,966",
+            "referee": "Szymon Marciniak (Poland)",
+            "score": "Argentina 3-3 France (Penalties: 4-2)",
+            "home": "Argentina",
+            "away": "France"
+        },
+        "stats": {
+            "Possession (%)": [54, 46],
+            "Expected Goals (xG)": [3.28, 2.15],
+            "Total Shots": [20, 10],
+            "Shots on Target": [10, 5],
+            "Passes Completed": [542, 421],
+            "Pass Accuracy (%)": [85, 80],
+            "Corners": [6, 5],
+            "Fouls Committed": [26, 19],
+            "Yellow Cards": [5, 3]
+        },
+        "events": [
+            {"time": "23'", "team": "Argentina", "type": "goal", "player": "Lionel Messi", "desc": "Goal! Converted penalty after Dembélé fouled Di María.", "icon": "⚽"},
+            {"time": "36'", "team": "Argentina", "type": "goal", "player": "Ángel Di María", "desc": "Goal! World-class counter-attack. Tapped home from Mac Allister's low cross.", "icon": "⚽"},
+            {"time": "41'", "team": "France", "type": "sub", "player": "Thuram / Kolo Muani", "desc": "Tactical subs: Giroud & Dembélé replaced early.", "icon": "🔄"},
+            {"time": "80'", "team": "France", "type": "goal", "player": "Kylian Mbappé", "desc": "Goal! Penalty kick drilled low after Otamendi fouled Kolo Muani.", "icon": "⚽"},
+            {"time": "81'", "team": "France", "type": "goal", "player": "Kylian Mbappé", "desc": "Goal! Sensational volleyed finish from Rabiot's lofted pass. 2-2!", "icon": "⚽"},
+            {"time": "108'", "team": "Argentina", "type": "goal", "player": "Lionel Messi", "desc": "Goal! Bundled home from close range after Lloris saved Lautaro's shot.", "icon": "⚽"},
+            {"time": "118'", "team": "France", "type": "goal", "player": "Kylian Mbappé", "desc": "Goal! Penalty kick converted after Montiel handled in the box. Hat-trick!", "icon": "⚽"},
+            {"time": "120+3'", "team": "France", "type": "shot", "player": "Randal Kolo Muani", "desc": "Incredible reflex save by Emi Martínez to deny France the trophy.", "icon": "🧤"}
+        ],
+        "coordinates": {
+            "shots": [
+                {"x": 88.5, "y": 50.0, "team": "Argentina", "player": "Lionel Messi", "outcome": "goal", "xG": 0.78, "desc": "Penalty Goal (23')"},
+                {"x": 93.0, "y": 38.0, "team": "Argentina", "player": "Ángel Di María", "outcome": "goal", "xG": 0.62, "desc": "Di María Close Range (36')"},
+                {"x": 92.0, "y": 50.0, "team": "Argentina", "player": "Lionel Messi", "outcome": "goal", "xG": 0.70, "desc": "Goal Rebound (108')"},
+                {"x": 86.0, "y": 48.0, "team": "Argentina", "player": "Alexis Mac Allister", "outcome": "saved", "xG": 0.12, "desc": "Mac Allister shot saved"},
+                {"x": 78.0, "y": 62.0, "team": "Argentina", "player": "Rodrigo De Paul", "outcome": "saved", "xG": 0.06, "desc": "De Paul volley saved"},
+                {"x": 89.0, "y": 44.0, "team": "Argentina", "player": "Julián Álvarez", "outcome": "saved", "xG": 0.28, "desc": "Álvarez tight angle saved"},
+                {"x": 85.0, "y": 54.0, "team": "Argentina", "player": "Lionel Messi", "outcome": "saved", "xG": 0.09, "desc": "Messi long range strike"},
+                {"x": 74.0, "y": 38.0, "team": "Argentina", "player": "Enzo Fernández", "outcome": "missed", "xG": 0.04, "desc": "Fernández shot wide"},
+                {"x": 11.5, "y": 50.0, "team": "France", "player": "Kylian Mbappé", "outcome": "goal", "xG": 0.78, "desc": "Penalty Goal (80')"},
+                {"x": 14.0, "y": 68.0, "team": "France", "player": "Kylian Mbappé", "outcome": "goal", "xG": 0.15, "desc": "Volley Goal (81')"},
+                {"x": 11.5, "y": 50.0, "team": "France", "player": "Kylian Mbappé", "outcome": "goal", "xG": 0.78, "desc": "Penalty Goal (118')"},
+                {"x": 10.0, "y": 52.0, "team": "France", "player": "Randal Kolo Muani", "outcome": "saved", "xG": 0.65, "desc": "Muani 1v1 saved by Martinez"},
+                {"x": 15.0, "y": 42.0, "team": "France", "player": "Kylian Mbappé", "outcome": "saved", "xG": 0.10, "desc": "Mbappé curler saved"},
+                {"x": 22.0, "y": 35.0, "team": "France", "player": "Adrien Rabiot", "outcome": "saved", "xG": 0.08, "desc": "Rabiot snapshot saved"},
+                {"x": 18.0, "y": 62.0, "team": "France", "player": "Marcus Thuram", "outcome": "missed", "xG": 0.05, "desc": "Thuram header wide"}
+            ],
+            "passes": [
+                {"fromX": 54.0, "fromY": 50.0, "toX": 78.0, "toY": 25.0, "team": "Argentina", "playerFrom": "Enzo Fernández", "playerTo": "Alexis Mac Allister", "type": "progressive"},
+                {"fromX": 78.0, "fromY": 25.0, "toX": 93.0, "toY": 38.0, "team": "Argentina", "playerFrom": "Alexis Mac Allister", "playerTo": "Ángel Di María", "type": "key"},
+                {"fromX": 60.0, "fromY": 65.0, "toX": 82.0, "toY": 55.0, "team": "Argentina", "playerFrom": "Rodrigo De Paul", "playerTo": "Lionel Messi", "type": "progressive"},
+                {"fromX": 82.0, "fromY": 55.0, "toX": 91.0, "toY": 65.0, "team": "Argentina", "playerFrom": "Lionel Messi", "playerTo": "Julián Álvarez", "type": "key"},
+                {"fromX": 45.0, "fromY": 50.0, "toX": 25.0, "toY": 78.0, "team": "France", "playerFrom": "Adrien Rabiot", "playerTo": "Kylian Mbappé", "type": "key"},
+                {"fromX": 35.0, "fromY": 30.0, "toX": 15.0, "toY": 58.0, "team": "France", "playerFrom": "Kingsley Coman", "playerTo": "Kolo Muani", "type": "progressive"},
+                {"fromX": 40.0, "fromY": 60.0, "toX": 18.0, "toY": 74.0, "team": "France", "playerFrom": "Marcus Thuram", "playerTo": "Kylian Mbappé", "type": "progressive"}
+            ],
+            "heatmap": [
+                {"x": 52.0, "y": 48.0, "value": 0.8}, {"x": 58.0, "y": 55.0, "value": 0.95}, {"x": 62.0, "y": 50.0, "value": 0.9},
+                {"x": 66.0, "y": 38.0, "value": 0.85}, {"x": 74.0, "y": 32.0, "value": 0.9}, {"x": 80.0, "y": 25.0, "value": 0.95},
+                {"x": 78.0, "y": 50.0, "value": 0.8}, {"x": 84.0, "y": 48.0, "value": 0.85}, {"x": 88.0, "y": 52.0, "value": 0.9},
+                {"x": 65.0, "y": 70.0, "value": 0.65}, {"x": 72.0, "y": 78.0, "value": 0.72}, {"x": 80.0, "y": 80.0, "value": 0.6},
+                {"x": 40.0, "y": 50.0, "value": 0.5}, {"x": 35.0, "y": 45.0, "value": 0.45},
+                {"x": 48.0, "y": 50.0, "value": 0.75}, {"x": 42.0, "y": 68.0, "value": 0.85}, {"x": 32.0, "y": 75.0, "value": 0.95},
+                {"x": 22.0, "y": 80.0, "value": 0.98}, {"x": 14.0, "y": 82.0, "value": 0.9}, {"x": 15.0, "y": 65.0, "value": 0.85},
+                {"x": 25.0, "y": 50.0, "value": 0.7}, {"x": 30.0, "y": 25.0, "value": 0.6}, {"x": 18.0, "y": 22.0, "value": 0.75},
+                {"x": 12.0, "y": 38.0, "value": 0.68}, {"x": 8.0, "y": 50.0, "value": 0.8}
+            ]
+        }
+    },
+    "simulation_teams": {
+        "Argentina": {"attack": 92, "midfield": 90, "defense": 89, "star_player": "Lionel Messi"},
+        "France": {"attack": 91, "midfield": 88, "defense": 90, "star_player": "Kylian Mbappé"},
+        "Croatia": {"attack": 82, "midfield": 92, "defense": 85, "star_player": "Luka Modrić"},
+        "Morocco": {"attack": 80, "midfield": 84, "defense": 88, "star_player": "Achraf Hakimi"},
+        "Brazil": {"attack": 93, "midfield": 87, "defense": 89, "star_player": "Neymar Jr"},
+        "England": {"attack": 89, "midfield": 88, "defense": 86, "star_player": "Harry Kane"},
+        "Portugal": {"attack": 88, "midfield": 89, "defense": 85, "star_player": "Bruno Fernandes"},
+        "Netherlands": {"attack": 85, "midfield": 86, "defense": 89, "star_player": "Virgil van Dijk"}
+    }
 }
 
-st.title("Strategós Analytics — Tactical Line Filter")
+# -----------------------------------------------------------------------------
+# 2. RUNTIME GRAPHICS CONFIGURATION
+# -----------------------------------------------------------------------------
+st.set_page_config(page_title="Strategós World Cup Dashboard", layout="wide", initial_sidebar_state="expanded")
 
-# 2. Sidebar Filters
-st.sidebar.header("Tactical Visualization Filters")
+st.markdown("""
+    <style>
+    .main {background-color: #0f172a; color: #f8fafc;}
+    div[data-testid="stMetricValue"] {font-size: 2rem; font-weight: 700; color: #38bdf8;}
+    div.stButton > button:first-child {
+        background-color: #0284c7; color: white; border-radius: 6px; border: none; width: 100%; font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# Allow user to toggle specific lines on/off
-selected_lines = st.sidebar.multiselect(
-    "Select Tactical Lines to Display:",
-    options=list(TACTICAL_COLORS.keys()),
-    default=list(TACTICAL_COLORS.keys())
+st.title("⚽ Strategós Python Analytics Dashboard")
+st.subheader("2022 FIFA World Cup Comprehensive Analysis Suite")
+st.write("---")
+
+navigation_view = st.sidebar.radio(
+    "Select Dashboard Suite",
+    ["Standings & Tournament Path", "Final Match Tactical Pitch", "Player Comparison Radar", "Predictive Match Simulator"]
 )
 
-# 3. Base Pitch Setup (Simplified for example)
-fig = go.Figure()
+# -----------------------------------------------------------------------------
+# INTERFACE SUITE 1: STANDINGS
+# -----------------------------------------------------------------------------
+if navigation_view == "Standings & Tournament Path":
+    st.header("🏆 Group Stage Standings & Knockout Matrix")
+    selected_group = st.selectbox("Filter Group Table", list(WORLD_CUP_DATA["groups"].keys()))
+    group_df = pd.DataFrame(WORLD_CUP_DATA["groups"][selected_group]).set_index("rank")
+    
+    st.dataframe(group_df.style.background_gradient(subset=["pts", "gd"], cmap="Blues"), use_container_width=True)
+    
+    st.write("### 🪜 Knockout Stage Progression Tree")
+    bracket_level = st.selectbox("Select Tournament Round", ["Round of 16 (r16)", "Quarter-Finals (qf)", "Semi-Finals (sf)", "Final (final)"])
+    bracket_key = bracket_level.split("(")[-1].replace(")", "").strip()
+    st.table(pd.DataFrame(WORLD_CUP_DATA["bracket"][bracket_key])[["match", "team1", "score1", "team2", "score2", "winner"]])
 
-# Pitch boundaries (StatsBomb coords: 120 x 80)
-fig.update_layout(
-    xaxis=dict(range=[0, 120], showgrid=False, zeroline=False),
-    yaxis=dict(range=[0, 80], showgrid=False, zeroline=False),
-    width=800,
-    height=533,
-    plot_bgcolor="#1e1e1e", # Dark mode pitch background
-    paper_bgcolor="#1e1e1e"
-)
+# -----------------------------------------------------------------------------
+# INTERFACE SUITE 2: SPATIAL PITCH OVERLAYS
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# INTERFACE SUITE 2: SPATIAL PITCH OVERLAYS (WITH ADVANCED FILTERS)
+# -----------------------------------------------------------------------------
+elif navigation_view == "Final Match Tactical Pitch":
+    st.header("🎯 Final Match Spatial Event Mapping")
+    details = WORLD_CUP_DATA["final_match"]["details"]
+    coords = WORLD_CUP_DATA["final_match"]["coordinates"]
+    
+    # Meta Information Cards
+    col1, col2, col3, col4 = st.columns(4)
+    with col1: st.metric("Score", details["score"])
+    with col2: st.metric("Venue", details["stadium"])
+    with col3: st.metric("Attendance", details["attendance"])
+    with col4: st.metric("Official", details["referee"].split("(")[0])
 
-# 4. Mock Tracking Data for Tactical Lines
-# In production, this would be computed from your StatsBomb event/tracking data
-line_data = [
-    {"type": "Defensive Line", "x": [30, 32, 35, 30], "y": [15, 35, 55, 70]},
-    {"type": "Midfield Block", "x": [55, 58, 60, 56], "y": [10, 32, 50, 72]},
-    {"type": "Attacking Line", "x": [85, 90, 88],     "y": [20, 40, 60]},
-    {"type": "Passing Lane/Link", "x": [32, 58],       "y": [35, 32]}
-]
+    st.write("---")
+    
+    # --- SIDEBAR FILTERS CRADLE ---
+    st.sidebar.markdown("### 🛠️ Tactical Canvas Filters")
+    
+    # Filter 1: Team Selection
+    team_filter = st.sidebar.multiselect(
+        "Filter by Team", 
+        options=["Argentina", "France"], 
+        default=["Argentina", "France"]
+    )
+    
+    # Filter 2: Event Type Toggles
+    st.sidebar.markdown("**Display Layers**")
+    show_shots = st.sidebar.checkbox("Show Shot Overlay Maps", value=True)
+    show_passes = st.sidebar.checkbox("Show Passing Vectors", value=True)
+    
+    # Filter 3: Sub-category metrics (Conditional options)
+    shot_outcome_filter = []
+    pass_type_filter = []
+    
+    if show_shots:
+        shot_outcome_filter = st.sidebar.multiselect(
+            "Shot Outcomes", 
+            options=["goal", "saved", "missed"], 
+            default=["goal", "saved", "missed"]
+        )
+        
+    if show_passes:
+        pass_type_filter = st.sidebar.multiselect(
+            "Pass Dynamics", 
+            options=["key", "progressive"], 
+            default=["key", "progressive"]
+        )
 
-# 5. Render Filtered Lines
-for line in line_data:
-    if line["type"] in selected_lines:
-        fig.add_trace(go.Scatter(
-            x=line["x"],
-            y=line["y"],
-            mode="lines+markers",
-            name=line["type"],
-            line=dict(
-                color=TACTICAL_COLORS[line["type"]], 
-                width=3, 
-                dash="dash" if "Link" in line["type"] else "solid"
-            ),
-            marker=dict(size=6, color="#ffffff"),
-            hoverinfo="name"
-        ))
+    # --- CANVAS GENERATION LOGIC ---
+    def generate_pitch_base():
+        fig = go.Figure()
+        # Draw Field Outer Boundaries
+        fig.add_shape(type="rect", x0=0, y0=0, x1=100, y1=100, line=dict(color="rgba(255,255,255,0.3)", width=2), fillcolor="rgba(16, 185, 129, 0.08)")
+        # Halfway Line
+        fig.add_shape(type="line", x0=50, y0=0, x1=50, y1=100, line=dict(color="rgba(255,255,255,0.3)", width=2))
+        # Center Circle
+        fig.add_shape(type="circle", x0=40, y0=35, x1=60, y1=65, line=dict(color="rgba(255,255,255,0.3)", width=2))
+        # Left Penalty Box (France attacking side / Argentina defense zone)
+        fig.add_shape(type="rect", x0=0, y0=20, x1=16.5, y1=80, line=dict(color="rgba(255,255,255,0.3)", width=2))
+        # Right Penalty Box (Argentina attacking side / France defense zone)
+        fig.add_shape(type="rect", x0=83.5, y0=20, x1=100, y1=80, line=dict(color="rgba(255,255,255,0.3)", width=2))
+        return fig
 
-st.plotly_chart(fig, use_container_width=True)
+    fig_pitch = generate_pitch_base()
+
+    # --- PLOT SHOTS IF ACTIVATED ---
+    if show_shots and shot_outcome_filter:
+        shot_df = pd.DataFrame(coords["shots"])
+        # Apply filters based on UI state inputs
+        filtered_shots = shot_df[
+            (shot_df["team"].isin(team_filter)) & 
+            (shot_df["outcome"].isin(shot_outcome_filter))
+        ]
+        
+        if not filtered_shots.empty:
+            filtered_shots["marker_size"] = filtered_shots["xG"] * 45 + 10
+            color_map = {"goal": "#10b981", "saved": "#3b82f6", "missed": "#ef4444"}
+            
+            for outcome, group in filtered_shots.groupby("outcome"):
+                fig_pitch.add_trace(go.Scatter(
+                    x=group["x"], y=group["y"], mode="markers",
+                    marker=dict(size=group["marker_size"], color=color_map[outcome], line=dict(width=1, color="white")),
+                    name=f"SHOT: {outcome.upper()}",
+                    text=group["player"] + "<br>" + group["desc"] + "<br>xG: " + group["xG"].astype(str),
+                    hoverinfo="text"
+                ))
+
+    # --- PLOT PASS LINES IF ACTIVATED ---
+    if show_passes and pass_type_filter:
+        pass_df = pd.DataFrame(coords["passes"])
+        filtered_passes = pass_df[
+            (pass_df["team"].isin(team_filter)) & 
+            (pass_df["type"].isin(pass_type_filter))
+        ]
+        
+        colors = {"Argentina": "#38bdf8", "France": "#f43f5e"}
+        
+        for idx, row in filtered_passes.iterrows():
+            # Adjust styling details depending on key vs progressive markers
+            is_key = row["type"] == "key"
+            fig_pitch.add_trace(go.Scatter(
+                x=[row["fromX"], row["toX"]], y=[row["fromY"], row["toY"]],
+                mode="lines+markers",
+                line=dict(
+                    color=colors[row["team"]], 
+                    width=4 if is_key else 2, 
+                    dash="solid" if is_key else "dash"
+                ),
+                marker=dict(size=[4, 8], color=colors[row["team"]]),
+                name=f"{row['team']} {row['type'].upper()} Pass",
+                text=f"{row['playerFrom']} -> {row['playerTo']}<br>Type: {row['type']}",
+                hoverinfo="text",
+                showlegend=True if idx == filtered_passes.index[0] or row['type'] == 'key' else False 
+            ))
+
+    # Clean layout properties
+    fig_pitch.update_xaxes(visible=False, range=[-2, 102])
+    fig_pitch.update_yaxes(visible=False, range=[-2, 102])
+    fig_pitch.update_layout(
+        template="plotly_dark", 
+        height=650, 
+        margin=dict(l=20, r=20, t=40, b=20),
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, bgcolor="rgba(30, 41, 59, 0.7)")
+    )
+    
+    st.plotly_chart(fig_pitch, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# INTERFACE SUITE 3: RADAR ENGINES
+# -----------------------------------------------------------------------------
+elif navigation_view == "Player Comparison Radar":
+    st.header("📊 Profile Attributes Side-by-Side Radar Matrix")
+    player_dict = {p["name"]: p for p in WORLD_CUP_DATA["players"]}
+    
+    c1, c2 = st.columns(2)
+    with c1: p1_selection = st.selectbox("Select Player A", list(player_dict.keys()), index=0)
+    with c2: p2_selection = st.selectbox("Select Player B", list(player_dict.keys()), index=1)
+    
+    p1, p2 = player_dict[p1_selection], player_dict[p2_selection]
+    categories = list(p1["stats"].keys())
+    
+    fig_radar = go.Figure()
+    fig_radar.add_trace(go.Scatterpolar(r=list(p1["stats"].values()), theta=categories, fill='toself', name=p1["name"], line=dict(color="#38bdf8")))
+    fig_radar.add_trace(go.Scatterpolar(r=list(p2["stats"].values()), theta=categories, fill='toself', name=p2["name"], line=dict(color="#f43f5e")))
+    fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100]), bgcolor="#1e293b"), template="plotly_dark", height=500)
+    st.plotly_chart(fig_radar, use_container_width=True)
+    
+    st.dataframe(pd.DataFrame([{"Player": p["name"], "Team": p["team"], **p["world_cup_stats"]} for p in [p1, p2]]).set_index("Player"), use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# INTERFACE SUITE 4: POISSON PROJECTIONS
+# -----------------------------------------------------------------------------
+elif navigation_view == "Predictive Match Simulator":
+    st.header("🧮 Weighted Multi-Factor Prediction Simulator")
+    teams = WORLD_CUP_DATA["simulation_teams"]
+    
+    col1, col2 = st.columns(2)
+    with col1: team_a_name = st.selectbox("Designated Home Team", list(teams.keys()), index=0)
+    with col2: team_b_name = st.selectbox("Designated Away Team", list(teams.keys()), index=1)
+    
+    if team_a_name != team_b_name and st.button("Execute Match Simulation"):
+        tA, tB = teams[team_a_name], teams[team_b_name]
+        score_a = np.random.poisson((tA["attack"] / tB["defense"]) * 1.45)
+        score_b = np.random.poisson((tB["attack"] / tA["defense"]) * 1.35)
+        
+        st.markdown(f"<h2 style='text-align: center;'>{team_a_name}  {score_a}  -  {score_b}  {team_b_name}</h2>", unsafe_allow_html=True)
+        
+        m1, m2, m3 = st.columns(3)
+        with m1: st.metric(f"{team_a_name} Ball Possession", f"{int((tA['midfield']/(tA['midfield']+tB['midfield']))*100)}%")
+        with m2: st.metric("Simulated Match State", "FT (After Extra Time)" if score_a == score_b else "Full-Time (FT)")
+        with m3: st.metric(f"{team_b_name} Ball Possession", f"{100 - int((tA['midfield']/(tA['midfield']+tB['midfield']))*100)}%")
