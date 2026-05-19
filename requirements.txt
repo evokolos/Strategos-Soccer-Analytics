@@ -3,3 +3,5 @@ pandas
 statsbombpy
 mplsoccer
 matplotlib
+streamlit
+plotly
